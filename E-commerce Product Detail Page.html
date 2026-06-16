@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品详情页</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        [v-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased font-sans">
+
+    <div id="app" v-cloak>
+        <header class="bg-white shadow-sm sticky top-0 z-50">
+            <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+                <h1 class="text-xl font-bold text-indigo-600 tracking-wider">STORE</h1>
+                <div class="relative p-2 bg-gray-100 rounded-full cursor-pointer hover:bg-gray-200 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                    <span v-if="cartCount > 0" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold animate-bounce">
+                        {{ cartCount }}
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        <transition enter-active-class="transform ease-out duration-300 transition" enter-from-class="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2" enter-to-class="translate-y-0 opacity-100 sm:translate-x-0" leave-active-class="transition ease-in duration-100" leave-from-class="opacity-100" leave-to-class="opacity-0">
+            <div v-if="toast.show" class="fixed top-20 right-4 z-50 max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden">
+                <div class="p-4 flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg v-if="toast.type === 'success'" class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <svg v-else class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="ml-3 w-0 flex-1 pt-0.5">
+                        <p class="text-sm font-medium text-gray-900">
+                            {{ toast.type === 'success' ? '操作成功' : '操作失败' }}
+                        </p>
+                        <p class="mt-1 text-sm text-gray-500">{{ toast.message }}</p>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <main class="max-w-6xl mx-auto px-4 py-8">
+
+            <div v-if="loading.product" class="flex flex-col items-center justify-center min-h-[400px]">
+                <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+                <p class="mt-4 text-gray-500 font-medium">正在加载商品详情...</p>
+            </div>
+
+            <div v-else-if="error.product" class="bg-red-50 border-l-4 border-red-400 p-6 rounded-md my-8">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-red-800">数据拉取失败</h3>
+                        <p class="mt-2 text-sm text-red-700">{{ error.product }}</p>
+                        <button @click="fetchProductData" class="mt-4 px-4 py-2 bg-red-600 text-white text-xs font-semibold rounded hover:bg-red-700 transition">
+                            重新尝试
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div v-else class="bg-white rounded-2xl shadow-sm p-6 md:p-10 grid grid-cols-1 md:grid-cols-2 gap-12">
+
+                <div class="flex flex-col space-y-4">
+                    <div class="w-full aspect-square bg-gray-100 rounded-xl overflow-hidden shadow-inner flex items-center justify-center border border-gray-100">
+                        <div class="text-center p-8">
+                            <div class="w-32 h-32 mx-auto rounded-full shadow-md mb-4 transition-all duration-300" :style="{ backgroundColor: currentSku?.color?.toLowerCase() === 'black' ? '#1f2937' : '#6366f1' }"></div>
+                            <span class="text-xs tracking-widest text-gray-400 block uppercase">SKU: {{ currentSku?.skuId }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col justify-between">
+                    <div>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-800 mb-4">
+                            {{ product.productId }}
+                        </span>
+
+                        <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight mb-2">{{ product.name }}</h2>
+
+                        <div class="flex items-baseline space-x-2 my-4">
+                            <span class="text-3xl font-bold text-gray-900">￥{{ currentSku?.price }}</span>
+                            <span class="text-sm text-gray-400 line-through">￥{{ (currentSku?.price * 1.2).toFixed(0) }}</span>
+                        </div>
+
+                        <hr class="my-6 border-gray-100">
+
+                        <p class="text-gray-600 text-sm leading-relaxed mb-6">{{ product.description }}</p>
+
+                        <div class="mb-6">
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">颜色 (Color)</label>
+                            <div class="flex flex-wrap gap-3">
+                                <button v-for="color in uniqueColors" :key="color"
+                                    @click="selectVariant('color', color)"
+                                    :class="[
+                                        selectedColor === color
+                                        ? 'border-indigo-600 bg-indigo-50 text-indigo-600 font-semibold'
+                                        : 'border-gray-200 text-gray-700 hover:border-gray-300 bg-white'
+                                    ]"
+                                    class="px-4 py-2 text-sm border rounded-lg transition focus:outline-none">
+                                    {{ color }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-8">
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">规格/容量 (Size/Capacity)</label>
+                            <div class="flex flex-wrap gap-3">
+                                <button v-for="size in availableSizesForColor" :key="size"
+                                    @click="selectVariant('size', size)"
+                                    :disabled="!isSkuAvailable(selectedColor, size)"
+                                    :class="[
+                                        selectedSize === size
+                                        ? 'border-indigo-600 bg-indigo-50 text-indigo-600 font-semibold'
+                                        : 'border-gray-200 text-gray-700 hover:border-gray-300 bg-white',
+                                        !isSkuAvailable(selectedColor, size) ? 'opacity-30 cursor-not-allowed bg-gray-100' : ''
+                                    ]"
+                                    class="px-4 py-2 text-sm border rounded-lg transition focus:outline-none">
+                                    {{ size }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-2 mb-6">
+                            <span class="flex h-3 w-3 relative">
+                                <span :class="currentSku?.stock > 0 ? 'bg-green-400' : 'bg-red-400'" class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"></span>
+                                <span :class="currentSku?.stock > 0 ? 'bg-green-500' : 'bg-red-500'" class="relative inline-flex rounded-full h-3 w-3"></span>
+                            </span>
+                            <span :class="currentSku?.stock > 0 ? 'text-green-700' : 'text-red-600'" class="text-sm font-medium">
+                                {{ currentSku?.stock > 0 ? `当前规格库存：${currentSku.stock} 件` : '该规格已售罄 (Out of Stock)' }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="flex items-center space-x-4">
+                            <span class="text-sm font-medium text-gray-500">购买数量:</span>
+                            <div class="flex items-center border border-gray-300 rounded-lg bg-white overflow-hidden shadow-sm">
+                                <button @click="decreaseQuantity"
+                                        :disabled="quantity <= 1 || currentSku?.stock === 0"
+                                        class="px-3 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold">
+                                    -
+                                </button>
+                                <span class="px-6 py-2 text-gray-800 font-semibold text-center w-14 select-none">
+                                    {{ currentSku?.stock === 0 ? 0 : quantity }}
+                                </span>
+                                <button @click="increaseQuantity"
+                                        :disabled="quantity >= (currentSku?.stock || 0) || currentSku?.stock === 0"
+                                        class="px-3 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold">
+                                    +
+                                </button>
+                            </div>
+                            <span v-if="quantity >= currentSku?.stock && currentSku?.stock > 0" class="text-xs text-amber-600 font-medium">
+                                已达当前规格库存上限
+                            </span>
+                        </div>
+
+                        <div class="flex space-x-4 pt-2">
+                            <button @click="handleAddToCart"
+                                    :disabled="currentSku?.stock === 0 || loading.cart"
+                                    :class="[
+                                        currentSku?.stock > 0
+                                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md'
+                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                    ]"
+                                    class="flex-1 flex items-center justify-center py-4 px-6 rounded-xl font-bold tracking-wide transition focus:outline-none transform active:scale-[0.98]">
+
+                                <svg v-if="loading.cart" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+
+                                <span>{{ currentSku?.stock > 0 ? '加入购物车' : '无货 / 停止订购' }}</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- 1. MOCK API 服务隔离层 (Mock API Service Layer) ---
+        const MockAPI = {
+            // 模拟数据库中的商品原始数据
+            _db: {
+                productId: "001",
+                name: "产品名称",
+                description: "产品描述",
+                images: ["placeholder-url"],
+                variants: [
+                    { skuId: "SKU-001", color: "Black", size: "128GB", price: 1299, stock: 5 },
+                    { skuId: "SKU-002", color: "Black", size: "256GB", price: 1599, stock: 10 },
+                    { skuId: "SKU-003", color: "Indigo", size: "128GB", price: 1399, stock: 3 },
+                    { skuId: "SKU-004", color: "Indigo", size: "256GB", price: 1699, stock: 0 }
+                ]
+            },
+
+
+            getProductDetail(productId) {
+                return new Promise((resolve, reject) => {
+                    setTimeout(() => {
+                        if (Math.random() < 0.05) {
+                            reject(new Error("网络网关连接超时 (ERR_CONNECTION_TIMED_OUT)"));
+                        } else {
+                            resolve(JSON.parse(JSON.stringify(this._db)));
+                        }
+                    }, 600);
+                });
+            },
+
+
+            addToCart({ productId, skuId, quantity }) {
+                return new Promise((resolve, reject) => {
+                    setTimeout(() => {
+                        const product = this._db;
+                        const sku = product.variants.find(v => v.skuId === skuId);
+
+
+                        if (!sku) {
+                            return resolve({ success: false, message: "未识别的无效SKU编码" });
+                        }
+                        if (sku.stock <= 0) {
+                            return resolve({ success: false, message: "抱歉，当前已无库存" });
+                        }
+                        if (quantity > sku.stock) {
+                            return resolve({ success: false, message: `库存不足：当前仅剩 ${sku.stock} 件，无法添加 ${quantity} 件。` });
+                        }
+
+
+                        if (Math.random() < 0.15) {
+                            return resolve({ success: false, message: "，加购处理失败，请稍后重试" });
+                        }
+
+                        sku.stock -= quantity;
+
+                        resolve({
+                            success: true,
+                            cartCount: quantity
+                        });
+                    }, 800);
+                });
+            }
+        };
+
+        const { createApp, ref, computed, onMounted, watch } = Vue;
+
+        createApp({
+            setup() {
+                const product = ref({});
+                const cartCount = ref(0);
+
+                const loading = ref({ product: true, cart: false });
+                const error = ref({ product: null });
+
+                const selectedColor = ref('');
+                const selectedSize = ref('');
+                const quantity = ref(1);
+
+                const toast = ref({ show: false, type: 'success', message: '' });
+
+                const uniqueColors = computed(() => {
+                    if (!product.value.variants) return [];
+                    return [...new Set(product.value.variants.map(v => v.color))];
+                });
+
+                const availableSizesForColor = computed(() => {
+                    if (!product.value.variants) return [];
+                    return product.value.variants
+                        .filter(v => v.color === selectedColor.value)
+                        .map(v => v.size);
+                });
+
+                const currentSku = computed(() => {
+                    if (!product.value.variants) return null;
+                    return product.value.variants.find(
+                        v => v.color === selectedColor.value && v.size === selectedSize.value
+                    ) || null;
+                });
+
+                const isSkuAvailable = (color, size) => {
+                    return product.value.variants?.some(v => v.color === color && v.size === size);
+                };
+
+
+                const fetchProductData = async () => {
+                    loading.value.product = true;
+                    error.value.product = null;
+                    try {
+                        const data = await MockAPI.getProductDetail("P001");
+                        product.value = data;
+
+                        if (data.variants && data.variants.length > 0) {
+                            selectedColor.value = data.variants[0].color;
+                            selectedSize.value = data.variants[0].size;
+                        }
+                    } catch (err) {
+                        error.value.product = err.message || "未知系统异常";
+                        showToast('error', error.value.product);
+                    } finally {
+                        loading.value.product = false;
+                    }
+                };
+
+
+                const selectVariant = (dimension, value) => {
+                    if (dimension === 'color') {
+                        selectedColor.value = value;
+                        const sizes = availableSizesForColor.value;
+                        if (!sizes.includes(selectedSize.value)) {
+                            selectedSize.value = sizes[0] || '';
+                        }
+                    } else if (dimension === 'size') {
+                        selectedSize.value = value;
+                    }
+                };
+
+                const increaseQuantity = () => {
+                    if (currentSku.value && quantity.value < currentSku.value.stock) {
+                        quantity.value++;
+                    }
+                };
+
+                const decreaseQuantity = () => {
+                    if (quantity.value > 1) {
+                        quantity.value--;
+                    }
+                };
+
+                const handleAddToCart = async () => {
+                    if (!currentSku.value || currentSku.value.stock <= 0) return;
+
+                    loading.value.cart = true;
+                    try {
+                        const payload = {
+                            productId: product.value.productId,
+                            skuId: currentSku.value.skuId,
+                            quantity: quantity.value
+                        };
+
+                        const response = await MockAPI.addToCart(payload);
+
+                        if (response.success) {
+                            cartCount.value += response.cartCount;
+                            showToast('success', `成功将 ${quantity.value} 件商品加入购物车！`);
+
+                            if (currentSku.value.stock === 0) {
+                                quantity.value = 0;
+                            } else if (quantity.value > currentSku.value.stock) {
+                                quantity.value = currentSku.value.stock;
+                            }
+                        } else {
+                            showToast('error', response.message);
+                        }
+                    } catch (err) {
+                        showToast('error', "系统错误，未能成功加入购物车。");
+                    } finally {
+                        loading.value.cart = false;
+                    }
+                };
+
+                const showToast = (type, message) => {
+                    toast.value.show = true;
+                    toast.value.type = type;
+                    toast.value.message = message;
+                    setTimeout(() => {
+                        toast.value.show = false;
+                    }, 3000);
+                };
+
+                watch(currentSku, (newSku) => {
+                    if (newSku) {
+                        quantity.value = newSku.stock > 0 ? 1 : 0;
+                    }
+                });
+
+                onMounted(() => {
+                    fetchProductData();
+                });
+
+                return {
+                    product,
+                    cartCount,
+                    loading,
+                    error,
+                    selectedColor,
+                    selectedSize,
+                    quantity,
+                    toast,
+                    uniqueColors,
+                    availableSizesForColor,
+                    currentSku,
+                    isSkuAvailable,
+                    fetchProductData,
+                    selectVariant,
+                    increaseQuantity,
+                    decreaseQuantity,
+                    handleAddToCart
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
